@@ -14,6 +14,8 @@ const ocrLanguages = [
 
 export default function Records() {
   const [records, setRecords] = useState([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+  const [recordsError, setRecordsError] = useState("");
   const [form, setForm] = useState({ title: "", type: "other", doctorName: "", hospital: "", date: "", notes: "" });
   const [ocrFile, setOcrFile] = useState(null);
   const [ocrLanguage, setOcrLanguage] = useState("eng");
@@ -24,8 +26,20 @@ export default function Records() {
   const fileInput = useRef(null);
 
   const loadRecords = async () => {
-    try { const response = await api.get("/records"); setRecords(response.data); }
-    catch { /* Keep the page usable and let the user retry by refreshing. */ }
+    setRecordsLoading(true);
+    setRecordsError("");
+    try {
+      const response = await api.get("/records");
+      setRecords(response.data);
+    } catch (error) {
+      setRecordsError(
+        error.response?.data?.message ||
+          error.message ||
+          "Could not load your records. Please try again."
+      );
+    } finally {
+      setRecordsLoading(false);
+    }
   };
   useEffect(() => { loadRecords(); }, []);
 
@@ -99,7 +113,8 @@ export default function Records() {
       </section>
 
       <section className="panel your-records-panel"><div className="section-heading"><div><p className="eyebrow">YOUR HISTORY</p><h2>Saved records</h2></div><span className="section-count">{records.length.toString().padStart(2, "0")} ITEMS</span></div>
-        {records.length === 0 ? <div className="empty-state"><span className="empty-icon">▤</span><strong>Your health library starts here</strong><p>Add a record or scan a document to get started.</p></div> : <div className="record-list">{records.map((record) => <div className="record-card" key={record._id}><div className="record-card-icon">▤</div><div className="record-card-content"><h3>{record.title}</h3><span className="tag">{String(record.type || "other").replace(/_/g, " ")}</span>{record.doctorName && <p>Doctor: {record.doctorName}</p>}{record.hospital && <p>Facility: {record.hospital}</p>}{record.date && <p>{new Date(record.date).toLocaleDateString()}</p>}{record.notes && <p className="record-notes-preview">{record.notes}</p>}</div><button className="danger-button" onClick={() => deleteRecord(record._id)}>Delete</button></div>)}</div>}
+        {recordsError && <p role="alert">{recordsError} <button type="button" className="secondary-button" onClick={loadRecords} disabled={recordsLoading}>Retry</button></p>}
+        {recordsLoading ? <p role="status">Loading records...</p> : records.length === 0 ? <div className="empty-state"><span className="empty-icon">▤</span><strong>Your health library starts here</strong><p>Add a record or scan a document to get started.</p></div> : <div className="record-list">{records.map((record) => <div className="record-card" key={record._id}><div className="record-card-icon">▤</div><div className="record-card-content"><h3>{record.title}</h3><span className="tag">{String(record.type || "other").replace(/_/g, " ")}</span>{record.doctorName && <p>Doctor: {record.doctorName}</p>}{record.hospital && <p>Facility: {record.hospital}</p>}{record.date && <p>{new Date(record.date).toLocaleDateString()}</p>}{record.notes && <p className="record-notes-preview">{record.notes}</p>}</div><button className="danger-button" onClick={() => deleteRecord(record._id)}>Delete</button></div>)}</div>}
       </section>
     </main>
   </>;

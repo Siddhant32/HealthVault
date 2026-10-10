@@ -22,6 +22,7 @@ const ui = {
 export default function Copilot() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [sampleAnswer, setSampleAnswer] = useState(false);
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState(localStorage.getItem("hv-language") || "en");
   const t = ui[language] || ui.en;
@@ -31,9 +32,11 @@ export default function Copilot() {
     setQuestion(prompt);
     setLoading(true);
     setAnswer("");
+    setSampleAnswer(false);
     try {
       const response = await api.post("/copilot", { question: prompt, language });
       setAnswer(response.data.answer);
+      setSampleAnswer(response.data.isSample === true);
     } catch {
       setAnswer(t.error);
     } finally {
@@ -45,6 +48,7 @@ export default function Copilot() {
     setLanguage(value);
     localStorage.setItem("hv-language", value);
     setAnswer("");
+    setSampleAnswer(false);
   };
 
   return <>
@@ -69,7 +73,7 @@ export default function Copilot() {
         <div className="chat-actions"><small>Ctrl + Enter to send</small><button className="primary-button" onClick={() => ask()} disabled={loading || !question.trim()}>{loading ? t.thinking : t.ask} <span aria-hidden="true">↗</span></button></div>
       </section>
 
-      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
+      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{sampleAnswer ? "Sample AI response · Demo only" : t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
 
       <section className="suggestion-section"><p className="eyebrow">{t.suggestions}</p><div className="suggestions">{t.prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)} disabled={loading}>{prompt}<span>↗</span></button>)}</div></section>
     </main>
