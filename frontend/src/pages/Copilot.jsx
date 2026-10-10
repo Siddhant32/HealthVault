@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import { copilotApi } from "../api";
-import { DEMO_TOKEN, getDemoHealthContext } from "../mockApi";
+import { DEMO_TOKEN, getDemoCopilotAnswer } from "../mockApi";
 
 const languages = [
   { code: "en", label: "English", flag: "EN" },
@@ -12,7 +12,7 @@ const languages = [
   { code: "bn", label: "বাংলা · Bengali", flag: "বা" },
 ];
 const ui = {
-  en: { eyebrow: "PERSONAL HEALTH INTELLIGENCE", title: "Your health, in your language.", subtitle: "Ask about the information saved in your HealthVault profile.", language: "Response language", placeholder: "For example: Which medications are listed in my profile?", ask: "Ask Health Copilot", thinking: "Thinking…", answer: "Your answer", disclaimer: "This assistant summarizes stored information and does not diagnose, prescribe, or replace a healthcare professional.", suggestions: "Try asking", prompts: ["What medications am I taking?", "What allergies are listed?", "What is my blood group?", "How many medical records do I have?"], error: "I couldn't process that request. Check your connection and try again." },
+  en: { eyebrow: "PERSONAL HEALTH INTELLIGENCE", title: "Your health, in your language.", subtitle: "Ask about the information saved in your HealthVault profile.", language: "Response language", placeholder: "For example: What is the difference between type 1 and type 2 diabetes?", ask: "Ask Health Copilot", thinking: "Thinking…", answer: "Your answer", disclaimer: "Development demo information only. It does not diagnose, prescribe, or replace a healthcare professional.", suggestions: "Try asking", prompts: ["What is diabetes?", "What is the difference between type 1 and type 2 diabetes?", "What are common diabetes symptoms?", "How many medical records do I have?"], error: "I couldn't process that request. Check your connection and try again." },
   hi: { eyebrow: "आपका व्यक्तिगत स्वास्थ्य सहायक", title: "आपकी भाषा में आपका स्वास्थ्य।", subtitle: "अपने HealthVault प्रोफ़ाइल में सेव की गई जानकारी के बारे में पूछें।", language: "उत्तर की भाषा", placeholder: "उदाहरण: मेरी प्रोफ़ाइल में कौन-सी दवाएँ दर्ज हैं?", ask: "हेल्थ कोपायलट से पूछें", thinking: "सोच रहा है…", answer: "आपका उत्तर", disclaimer: "यह सहायक सेव की गई जानकारी समझाता है। यह बीमारी का निदान नहीं करता और डॉक्टर की सलाह का विकल्प नहीं है।", suggestions: "ये सवाल पूछें", prompts: ["मैं कौन-सी दवाएँ ले रहा/रही हूँ?", "मेरी कौन-सी एलर्जी दर्ज है?", "मेरा ब्लड ग्रुप क्या है?", "मेरे कितने मेडिकल रिकॉर्ड हैं?"], error: "अनुरोध पूरा नहीं हो सका। कनेक्शन जाँचें और फिर प्रयास करें।" },
   mr: { eyebrow: "तुमचा वैयक्तिक आरोग्य सहाय्यक", title: "तुमचे आरोग्य, तुमच्या भाषेत.", subtitle: "तुमच्या HealthVault प्रोफाइलमध्ये जतन केलेल्या माहितीबद्दल विचारा.", language: "उत्तराची भाषा", placeholder: "उदाहरण: माझ्या प्रोफाइलमध्ये कोणती औषधे नोंदवली आहेत?", ask: "हेल्थ कोपायलटला विचारा", thinking: "विचार करत आहे…", answer: "तुमचे उत्तर", disclaimer: "हा सहाय्यक जतन केलेली माहिती समजावतो. तो निदान करत नाही किंवा डॉक्टरांच्या सल्ल्याची जागा घेत नाही.", suggestions: "हे प्रश्न विचारा", prompts: ["मी कोणती औषधे घेत आहे?", "माझ्या कोणत्या अॅलर्जी नोंदल्या आहेत?", "माझा रक्तगट कोणता?", "माझे किती वैद्यकीय रेकॉर्ड आहेत?"], error: "विनंती पूर्ण करता आली नाही. कनेक्शन तपासून पुन्हा प्रयत्न करा." },
   gu: { eyebrow: "તમારો વ્યક્તિગત આરોગ્ય સહાયક", title: "તમારું આરોગ્ય, તમારી ભાષામાં.", subtitle: "તમારી HealthVault પ્રોફાઇલમાં સાચવેલી માહિતી વિશે પૂછો.", language: "જવાબની ભાષા", placeholder: "ઉદાહરણ: મારી પ્રોફાઇલમાં કઈ દવાઓ નોંધાયેલી છે?", ask: "હેલ્થ કોપાઇલટને પૂછો", thinking: "વિચારી રહ્યું છે…", answer: "તમારો જવાબ", disclaimer: "આ સહાયક સાચવેલી માહિતી સમજાવે છે. તે નિદાન કરતું નથી અને ડૉક્ટરની સલાહનો વિકલ્પ નથી.", suggestions: "આ પૂછવાનો પ્રયાસ કરો", prompts: ["હું કઈ દવાઓ લઉં છું?", "કઈ એલર્જી નોંધાયેલી છે?", "મારો બ્લડ ગ્રુપ શું છે?", "મારા કેટલા મેડિકલ રેકોર્ડ છે?"], error: "વિનંતી પૂર્ણ થઈ શકી નથી. કનેક્શન તપાસો અને ફરી પ્રયાસ કરો." },
@@ -38,15 +38,16 @@ export default function Copilot() {
     setRequestError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await copilotApi.post("/copilot", {
-        question: prompt,
-        language,
-        ...(token === DEMO_TOKEN
-          ? { healthContext: getDemoHealthContext() }
-          : {}),
-      });
-      setAnswer(response.data.answer);
-      setSampleAnswer(response.data.isSample === true);
+      if (token === DEMO_TOKEN) {
+        setAnswer(getDemoCopilotAnswer(prompt, language));
+        setSampleAnswer(true);
+      } else {
+        const response = await copilotApi.post("/copilot", {
+          question: prompt,
+          language,
+        });
+        setAnswer(response.data.answer);
+      }
     } catch (error) {
       setRequestError(
         error.response?.data?.message ||
@@ -74,6 +75,11 @@ export default function Copilot() {
         <p className="eyebrow">{t.eyebrow}</p>
         <h1>{t.title}</h1>
         <p className="copilot-intro">{t.subtitle}</p>
+        <p className="copilot-development-note" role="note">
+          Development phase: demo Copilot provides general diabetes education
+          in English and summaries of saved profile information. Answers are
+          not AI-generated or medical advice.
+        </p>
         <div className="language-control">
           <label htmlFor="copilot-language">{t.language}</label>
           <select id="copilot-language" value={language} onChange={(e) => changeLanguage(e.target.value)}>
@@ -89,7 +95,7 @@ export default function Copilot() {
       </section>
 
       {requestError && <p className="error-message" role="alert">{requestError}</p>}
-      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{sampleAnswer ? "Demo Copilot · local sample, not AI" : t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
+      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{sampleAnswer ? "Development demo answer · not AI" : t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
 
       <section className="suggestion-section"><p className="eyebrow">{t.suggestions}</p><div className="suggestions">{t.prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)} disabled={loading}>{prompt}<span>↗</span></button>)}</div></section>
     </main>

@@ -264,6 +264,119 @@ function formatItems(items) {
     .join(", ");
 }
 
+function diabetesAnswer(query) {
+  if (/emergency|urgent care|call.*ambulance|unconscious|seizure|cannot wake/i.test(query)) {
+    return "Seek urgent medical care for someone with diabetes who is unconscious, having a seizure, very confused or difficult to wake, vomiting with deep or rapid breathing, or unable to keep fluids down. Call local emergency services for severe or rapidly worsening symptoms. Do not give food or drink to someone who is unconscious or cannot swallow safely.";
+  }
+
+  if (/low blood sugar|hypoglyc|too low|shaking|sweating|confus.*blood sugar/i.test(query)) {
+    return "Low blood sugar (hypoglycemia) can cause shakiness, sweating, dizziness, hunger, or confusion. Follow the personal treatment plan provided by your clinician. If someone is unconscious, having a seizure, or cannot swallow safely, do not give food or drink; call local emergency services.";
+  }
+
+  if (/high blood sugar|hyperglyc|diabetic ketoacidosis|\bdka\b|ketone|deep or rapid breath|fruity breath/i.test(query)) {
+    return "High blood sugar can cause thirst, frequent urination, fatigue, and blurred vision. In someone with diabetes, vomiting, abdominal pain, deep or rapid breathing, fruity-smelling breath, severe drowsiness, or confusion can signal a serious emergency such as diabetic ketoacidosis. Seek urgent medical care for these symptoms.";
+  }
+
+  if (/type\s*1|juvenile|autoimmune/i.test(query) && /type\s*2|difference|compare|versus|\bvs\b/i.test(query)) {
+    return "Type 1 diabetes is an autoimmune condition in which the body makes little or no insulin. Type 2 diabetes involves insulin not working effectively and, over time, the body may not make enough. Both need individualized medical care; a clinician can explain diagnosis and treatment.";
+  }
+
+  if (/type\s*1|juvenile|autoimmune/i.test(query)) {
+    return "Type 1 diabetes is an autoimmune condition in which the body makes little or no insulin. It can develop at any age and is managed with a clinician-directed care plan, including insulin. Only a healthcare professional can diagnose it.";
+  }
+
+  if (/type\s*2/i.test(query)) {
+    return "Type 2 diabetes occurs when the body does not use insulin effectively and may not make enough to keep blood sugar in range. Management is individualized and can include nutrition, activity, monitoring, and prescribed medicines. A clinician can advise on diagnosis and care.";
+  }
+
+  if (/gestational|pregnan/i.test(query)) {
+    return "Gestational diabetes is high blood sugar first recognized during pregnancy. Screening, treatment, and follow-up are guided by the maternity-care team; many people need blood-sugar monitoring and an individualized care plan. Ask your clinician about testing during and after pregnancy.";
+  }
+
+  if (/symptom|signs?|thirst|urinat|peeing|vision|fatigue/i.test(query)) {
+    return "Common diabetes symptoms can include increased thirst, frequent urination, fatigue, blurred vision, and unintended weight changes; some people have no noticeable symptoms. These symptoms can have other causes too. A healthcare professional can assess them and order appropriate tests.";
+  }
+
+  if (/test|diagnos|a1c|hba1c|blood glucose|blood sugar level|normal range/i.test(query)) {
+    return "Diabetes is diagnosed using blood tests such as A1C or fasting blood glucose, interpreted by a healthcare professional. The right test and interpretation depend on the person and situation; a single home-meter reading is not enough to diagnose diabetes. Ask a clinician about testing and what your results mean.";
+  }
+
+  if (/prevent|risk|cause|causes|why (do|does)|develop/i.test(query)) {
+    return "Type 2 diabetes risk is influenced by several factors, including family history, age, and health conditions; regular activity and balanced eating may help lower risk for some people, but cannot guarantee prevention. Type 1 diabetes is autoimmune and is not caused by eating sugar. A clinician can discuss personal risk and screening.";
+  }
+
+  if (/food|diet|eat|meal|sugar|carb|drink/i.test(query)) {
+    return "There is no single diabetes diet that suits everyone. In general, regular balanced meals with vegetables, fiber-rich foods, and appropriate portions may help support health; sugary drinks can raise blood glucose. Individual needs vary, so ask a clinician or registered dietitian for a plan. Do not change prescribed treatment based on this demo.";
+  }
+
+  if (/exercise|activity|walk|fitness/i.test(query)) {
+    return "Regular physical activity can support health and blood-glucose management for many people with diabetes. The safe type and amount depend on a person’s health and treatment. Ask your healthcare professional how to exercise safely, especially if you use insulin or medicines that can lower blood sugar.";
+  }
+
+  if (/complication|damage|long.term|heart|kidney|eye|nerve/i.test(query)) {
+    return "Over time, diabetes can increase the risk of heart, kidney, eye, and nerve problems, especially when blood sugar is not well managed. Regular check-ups and a care plan with a healthcare professional can help monitor risk. This information cannot predict an individual’s outcome.";
+  }
+
+  if (/treat|manage|control|medicine|medication|insulin|cure/i.test(query)) {
+    return "Diabetes care is individualized and may include blood-sugar monitoring, nutrition and activity changes, and prescribed medicines. Type 1 diabetes requires insulin; treatment for type 2 varies. Do not start, stop, or change a medicine based on this demo—discuss your care with a clinician.";
+  }
+
+  return "Diabetes is a condition in which blood glucose (blood sugar) is higher than the body can keep in a healthy range. The main types include type 1, type 2, and gestational diabetes. Symptoms, tests, and treatment differ by person; a healthcare professional can provide diagnosis and personalized care.";
+}
+
+export function getDemoCopilotAnswer(question, language = "en") {
+  const query = String(question || "").trim().toLowerCase();
+  const text = copilotText[language] || copilotText.en;
+
+  if (
+    /diabet|blood sugar|blood glucose|hypoglyc|hyperglyc|a1c|hba1c|insulin|gestational/i.test(
+      query,
+    ) &&
+    /my profile|my health|saved|listed|recorded|in my records/i.test(query)
+  ) {
+    const profile = readStore(PROFILE_KEY, initialProfile);
+    const conditions = (profile.medicalConditions || []).filter((item) =>
+      /diabet|blood sugar|blood glucose/i.test(
+        `${item.name || ""} ${item.status || ""} ${item.notes || ""}`,
+      ),
+    );
+    const records = readStore(RECORDS_KEY, []).filter((record) =>
+      /diabet|blood sugar|blood glucose|insulin|a1c|hba1c/i.test(
+        `${record.title || ""} ${record.notes || ""}`,
+      ),
+    );
+
+    if (conditions.length || records.length) {
+      return [
+        conditions.length
+          ? `Saved medical conditions: ${formatItems(conditions)}.`
+          : "",
+        records.length
+          ? `Related saved records: ${records
+              .slice(0, 5)
+              .map((record) => record.title)
+              .filter(Boolean)
+              .join(", ")}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    return "No diabetes-specific conditions or records are saved in this browser profile.";
+  }
+
+  if (
+    /diabet|blood sugar|blood glucose|hypoglyc|hyperglyc|a1c|hba1c|insulin|gestational/i.test(
+      query,
+    )
+  ) {
+    return diabetesAnswer(query);
+  }
+
+  return demoCopilotAnswer(question, language);
+}
+
 function demoCopilotAnswer(question, language) {
   const text = copilotText[language] || copilotText.en;
   const query = question.toLowerCase();
@@ -445,7 +558,7 @@ export async function mockApiAdapter(config) {
 
   if (method === "POST" && path === "/copilot") {
     return response(config, {
-      answer: demoCopilotAnswer(
+      answer: getDemoCopilotAnswer(
         String(body.question || ""),
         String(body.language || "en"),
       ),
