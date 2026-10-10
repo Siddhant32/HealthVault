@@ -26,34 +26,57 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, database: mongoose.connection.readyState === 1 });
+  res.json({
+    ok: true,
+    database: mongoose.connection.readyState === 1,
+    copilotConfigured: Boolean(process.env.GEMINI_API_KEY),
+  });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/records", recordsRoutes);
-app.use("/api/share", shareRoutes);
+function requireDatabase(req, res, next) {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      message: "This feature is unavailable because the database is not connected.",
+    });
+  }
+
+  if (!process.env.JWT_SECRET) {
+    return res.status(503).json({
+      message: "Account authentication is not configured on this server.",
+    });
+  }
+
+  return next();
+}
+
+app.use("/api/auth", requireDatabase, authRoutes);
+app.use("/api/profile", requireDatabase, profileRoutes);
+app.use("/api/records", requireDatabase, recordsRoutes);
+app.use("/api/share", requireDatabase, shareRoutes);
 app.use("/api/copilot", copilotRoutes);
-app.use("/api/doctors", doctorsRoutes);
+app.use("/api/doctors", requireDatabase, doctorsRoutes);
 
 
 const PORT = process.env.PORT || 5000;
 
-if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
-  console.error("Missing MONGO_URI or JWT_SECRET in Backend/.env");
-  process.exit(1);
-}
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
-    app.listen(PORT, () => {
-      console.log(`Backend running on http://localhost:${PORT}`);
+  if (!process.env.MONGO_URI) {
+    console.log(
+      "MONGO_URI is not configured. Starting in demo mode; database-backed routes will be unavailable.",
+    );
+    return;
+  }
+
+  mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => {
+      console.log("MongoDB connected");
+    })
+    .catch(() => {
+      console.error(
+        "MongoDB connection failed. The server remains available for demo Copilot; database-backed routes return 503.",
+      );
     });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
-    process.exit(1);
-  });
-
-  
+});

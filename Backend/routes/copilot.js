@@ -2,6 +2,7 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { rateLimit } from "express-rate-limit";
+import mongoose from "mongoose";
 import auth from "../middleware/auth.js";
 import User from "../models/User.js";
 import HealthProfile from "../models/HealthProfile.js";
@@ -85,6 +86,17 @@ router.post(
   (req, res, next) => {
     const authorization = req.get("authorization") || "";
     if (authorization !== `Bearer ${DEMO_TOKEN}`) {
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+          message:
+            "Sign in with the demo account to use Copilot while the database is unavailable.",
+        });
+      }
+      if (!process.env.JWT_SECRET) {
+        return res.status(503).json({
+          message: "Account authentication is not configured on this server.",
+        });
+      }
       return auth(req, res, next);
     }
 
