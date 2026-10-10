@@ -77,6 +77,28 @@ function writeStore(key, value) {
   return value;
 }
 
+export function getDemoHealthContext() {
+  const profile = readStore(PROFILE_KEY, initialProfile);
+  const records = readStore(RECORDS_KEY, []);
+
+  return {
+    bloodGroup: profile.bloodGroup,
+    height: profile.height,
+    weight: profile.weight,
+    allergies: profile.allergies,
+    conditions: profile.medicalConditions,
+    medications: profile.medications,
+    records: records.slice(0, 20).map((record) => ({
+      title: record.title,
+      type: record.type,
+      doctor: record.doctorName,
+      hospital: record.hospital,
+      date: record.date,
+      notes: record.notes,
+    })),
+  };
+}
+
 function bodyOf(config) {
   return typeof config.data === "string"
     ? JSON.parse(config.data || "{}")

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Navbar from "../components/Navbar";
-import api from "../api";
+import { copilotApi } from "../api";
+import { DEMO_TOKEN, getDemoHealthContext } from "../mockApi";
 
 const languages = [
   { code: "en", label: "English", flag: "EN" },
@@ -36,7 +37,14 @@ export default function Copilot() {
     setSampleAnswer(false);
     setRequestError("");
     try {
-      const response = await api.post("/copilot", { question: prompt, language });
+      const token = localStorage.getItem("token");
+      const response = await copilotApi.post("/copilot", {
+        question: prompt,
+        language,
+        ...(token === DEMO_TOKEN
+          ? { healthContext: getDemoHealthContext() }
+          : {}),
+      });
       setAnswer(response.data.answer);
       setSampleAnswer(response.data.isSample === true);
     } catch (error) {

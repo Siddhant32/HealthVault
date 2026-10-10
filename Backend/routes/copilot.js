@@ -1,12 +1,22 @@
 
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import { rateLimit } from "express-rate-limit";
 import auth from "../middleware/auth.js";
 import User from "../models/User.js";
 import HealthProfile from "../models/HealthProfile.js";
 import MedicalRecord from "../models/MedicalRecord.js";
 
 const router = express.Router();
+const DEMO_TOKEN = "healthvault-demo-session";
+
+const copilotRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many Copilot requests. Please wait a minute and try again." },
+});
 
 const languages = {
   en: "English",
@@ -17,10 +27,91 @@ const languages = {
   bn: "Bengali",
 };
 
-router.post("/", auth, async (req, res) => {
+function boundedText(value, maxLength = 500) {
+  return typeof value === "string" ? value.slice(0, maxLength) : "";
+}
+
+function demoItems(value, fields) {
+  if (!Array.isArray(value)) return [];
+
+  return value.slice(0, 30).map((item) => {
+    const safeItem = {};
+    for (const field of fields) {
+      safeItem[field] = boundedText(item?.[field]);
+    }
+    if (typeof item?.active === "boolean") {
+      safeItem.active = item.active;
+    }
+    return safeItem;
+  });
+}
+
+function sanitizeDemoContext(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const dimension = (item, fallbackUnit) => ({
+    value:
+      Number.isFinite(item?.value) && item.value >= 0
+        ? item.value
+        : 0,
+    unit: boundedText(item?.unit, 10) || fallbackUnit,
+  });
+
+  return {
+    bloodGroup: boundedText(value.bloodGroup, 20),
+    height: dimension(value.height, "cm"),
+    weight: dimension(value.weight, "kg"),
+    allergies: demoItems(value.allergies, ["name", "reaction", "severity"]),
+    conditions: demoItems(value.conditions, ["name", "status", "notes"]),
+    medications: demoItems(value.medications, ["name", "dosage", "frequency"]),
+    records: Array.isArray(value.records)
+      ? value.records.slice(0, 20).map((record) => ({
+          title: boundedText(record?.title, 200),
+          type: boundedText(record?.type, 50),
+          doctor: boundedText(record?.doctor, 100),
+          hospital: boundedText(record?.hospital, 100),
+          date: boundedText(record?.date, 40),
+          notes: boundedText(record?.notes, 1000),
+        }))
+      : [],
+  };
+}
+
+router.post(
+  "/",
+  copilotRateLimit,
+  (req, res, next) => {
+    const authorization = req.get("authorization") || "";
+    if (authorization !== `Bearer ${DEMO_TOKEN}`) {
+      return auth(req, res, next);
+    }
+
+    const healthContext = sanitizeDemoContext(req.body?.healthContext);
+    if (!healthContext) {
+      return res.status(400).json({
+        message: "Demo health information is missing. Reload the page and try again.",
+      });
+    }
+
+    if (JSON.stringify(healthContext).length > 20000) {
+      return res.status(413).json({
+        message: "The saved health information is too large to send to Copilot.",
+      });
+    }
+
+    req.demoHealthContext = healthContext;
+    return next();
+  },
+  async (req, res) => {
   try {
-    const question = String(req.body.question || "").trim();
-    const language = languages[req.body.language] ? req.body.language : "en";
+    const body =
+      req.body && typeof req.body === "object" && !Array.isArray(req.body)
+        ? req.body
+        : {};
+    const question = String(body.question || "").trim();
+    const language = languages[body.language] ? body.language : "en";
 
     if (!question) {
       return res.status(400).json({
@@ -44,55 +135,55 @@ router.post("/", auth, async (req, res) => {
       apiKey: process.env.GEMINI_API_KEY,
     });
 
-    // Get only the signed-in user's health information.
-    const user = await User.findById(req.userId).select("name");
-    const profile = await HealthProfile.findOne({
-      userId: req.userId,
-    });
+    let healthContext = req.demoHealthContext;
 
-    const records = await MedicalRecord.find({
-      userId: req.userId,
-    })
-      .select("title type doctorName hospital date notes")
-      .sort({ date: -1 })
-      .limit(20)
-      .lean();
+    if (!healthContext) {
+      // Get only the signed-in user's health information.
+      const user = await User.findById(req.userId).select("name");
+      const profile = await HealthProfile.findOne({
+        userId: req.userId,
+      });
 
-    // Keep the context focused and limit the amount of data sent.
-    const healthContext = {
-      name: user?.name || "Not provided",
-      bloodGroup: profile?.bloodGroup || "Not provided",
-      height: profile?.height || null,
-      weight: profile?.weight || null,
+      const records = await MedicalRecord.find({
+        userId: req.userId,
+      })
+        .select("title type doctorName hospital date notes")
+        .sort({ date: -1 })
+        .limit(20)
+        .lean();
 
-      allergies: (profile?.allergies || []).map((item) => ({
-        name: item.name,
-        reaction: item.reaction,
-        severity: item.severity,
-      })),
-
-      conditions: (profile?.medicalConditions || []).map((item) => ({
-        name: item.name,
-        status: item.status,
-        notes: item.notes,
-      })),
-
-      medications: (profile?.medications || []).map((item) => ({
-        name: item.name,
-        dosage: item.dosage,
-        frequency: item.frequency,
-        active: item.active,
-      })),
-
-      records: records.map((record) => ({
-        title: record.title,
-        type: record.type,
-        date: record.date,
-        doctor: record.doctorName,
-        hospital: record.hospital,
-        notes: String(record.notes || "").slice(0, 1500),
-      })),
-    };
+      // Keep the context focused and limit the amount of data sent.
+      healthContext = {
+        name: user?.name || "Not provided",
+        bloodGroup: profile?.bloodGroup || "Not provided",
+        height: profile?.height || null,
+        weight: profile?.weight || null,
+        allergies: (profile?.allergies || []).map((item) => ({
+          name: item.name,
+          reaction: item.reaction,
+          severity: item.severity,
+        })),
+        conditions: (profile?.medicalConditions || []).map((item) => ({
+          name: item.name,
+          status: item.status,
+          notes: item.notes,
+        })),
+        medications: (profile?.medications || []).map((item) => ({
+          name: item.name,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          active: item.active,
+        })),
+        records: records.map((record) => ({
+          title: record.title,
+          type: record.type,
+          date: record.date,
+          doctor: record.doctorName,
+          hospital: record.hospital,
+          notes: String(record.notes || "").slice(0, 1500),
+        })),
+      };
+    }
 
     const prompt = `
 You are HealthVault AI, a careful health-information assistant.
@@ -149,6 +240,7 @@ Give a useful, direct answer to the user's question.
       message: "The AI request failed. Please try again.",
     });
   }
-});
+  },
+);
 
 export default router;
