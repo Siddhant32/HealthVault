@@ -37,6 +37,8 @@ const demoDoctors = [
     clinicName: "Demo Health Clinic",
     address: "Demo Road, Virar West",
     city: "Virar",
+    latitude: 19.4559,
+    longitude: 72.8114,
     experienceYears: 5,
     consultationFee: 400,
   },
@@ -47,6 +49,8 @@ const demoDoctors = [
     clinicName: "Demo Skin Clinic",
     address: "Demo Market, Virar East",
     city: "Virar",
+    latitude: 19.4585,
+    longitude: 72.8173,
     experienceYears: 7,
     consultationFee: 600,
   },
@@ -57,10 +61,16 @@ const demoDoctors = [
     clinicName: "Demo Heart Centre",
     address: "Demo Avenue, Mumbai",
     city: "Mumbai",
+    latitude: 19.076,
+    longitude: 72.8777,
     experienceYears: 10,
     consultationFee: 800,
   },
 ];
+
+export function getDemoDoctors() {
+  return demoDoctors.map((doctor) => ({ ...doctor }));
+}
 
 function readStore(key, initialValue) {
   const stored = localStorage.getItem(key);

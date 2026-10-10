@@ -1482,6 +1482,66 @@ color: #ffffff;
   cursor: wait;
 }
 
+.nearby-doctors-panel {
+  margin-bottom: 35px;
+  padding: 25px;
+  border: 1px solid rgba(112, 240, 208, .17);
+  border-radius: 19px;
+  background: linear-gradient(145deg, #141f35, #0c1425);
+}
+
+.nearby-doctors-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.nearby-doctors-heading h2 {
+  margin: 8px 0;
+  font-size: 21px;
+}
+
+.nearby-doctors-heading p,
+.nearby-doctors-note {
+  color: #9baac3;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.nearby-location-button {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 11px 16px;
+  border: 1px solid rgba(112, 240, 208, .3);
+  border-radius: 10px;
+  background: rgba(112, 240, 208, .1);
+  color: #a1f4e3;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nearby-location-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.nearby-doctors-note {
+  margin: 18px 0;
+  font-size: 12px;
+}
+
+.nearby-doctors-panel .doctor-results-heading {
+  margin-top: 22px;
+}
+
+.nearby-doctors-panel .doctor-results-heading h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
 .doctor-results-heading {
   display: flex;
   align-items: center;
@@ -1608,6 +1668,11 @@ color: #ffffff;
 
   .doctor-results-grid {
     grid-template-columns: 1fr;
+  }
+
+  .nearby-doctors-heading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .find-doctors-page {
