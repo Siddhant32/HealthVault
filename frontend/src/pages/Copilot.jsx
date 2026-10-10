@@ -23,6 +23,7 @@ export default function Copilot() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [sampleAnswer, setSampleAnswer] = useState(false);
+  const [requestError, setRequestError] = useState("");
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState(localStorage.getItem("hv-language") || "en");
   const t = ui[language] || ui.en;
@@ -33,12 +34,17 @@ export default function Copilot() {
     setLoading(true);
     setAnswer("");
     setSampleAnswer(false);
+    setRequestError("");
     try {
       const response = await api.post("/copilot", { question: prompt, language });
       setAnswer(response.data.answer);
       setSampleAnswer(response.data.isSample === true);
-    } catch {
-      setAnswer(t.error);
+    } catch (error) {
+      setRequestError(
+        error.response?.data?.message ||
+          error.message ||
+          t.error,
+      );
     } finally {
       setLoading(false);
     }
@@ -49,6 +55,7 @@ export default function Copilot() {
     localStorage.setItem("hv-language", value);
     setAnswer("");
     setSampleAnswer(false);
+    setRequestError("");
   };
 
   return <>
@@ -68,12 +75,13 @@ export default function Copilot() {
       </section>
 
       <section className="copilot-box futuristic-chat-box">
-        <div className="chat-box-heading"><span className="live-dot" /> <span>HEALTHVAULT AI</span><span className="chat-secure-label">Private profile context</span></div>
+        <div className="chat-box-heading"><span className="live-dot" /> <span>HEALTHVAULT COPILOT</span><span className="chat-secure-label">Private profile context</span></div>
         <textarea aria-label="Ask Health Copilot" placeholder={t.placeholder} value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") ask(); }} />
         <div className="chat-actions"><small>Ctrl + Enter to send</small><button className="primary-button" onClick={() => ask()} disabled={loading || !question.trim()}>{loading ? t.thinking : t.ask} <span aria-hidden="true">↗</span></button></div>
       </section>
 
-      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{sampleAnswer ? "Sample AI response · Demo only" : t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
+      {requestError && <p className="error-message" role="alert">{requestError}</p>}
+      {answer && <section className="copilot-answer futuristic-answer" aria-live="polite"><div className="answer-icon">✦</div><div className="answer-copy"><h3>{sampleAnswer ? "Demo Copilot · local sample, not AI" : t.answer}</h3><p className="answer-text">{answer}</p><small>{t.disclaimer}</small></div></section>}
 
       <section className="suggestion-section"><p className="eyebrow">{t.suggestions}</p><div className="suggestions">{t.prompts.map((prompt) => <button key={prompt} onClick={() => ask(prompt)} disabled={loading}>{prompt}<span>↗</span></button>)}</div></section>
     </main>
